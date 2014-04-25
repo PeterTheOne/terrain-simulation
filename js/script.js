@@ -25,6 +25,8 @@ var terrainSimulation = function() {
 
     var worldWidth = 20;
     var worldDepth = 20;
+    var geometryWidth = 100;
+    var geometryDepth = 100;
 
     var stone;
     var sand;
@@ -36,8 +38,8 @@ var terrainSimulation = function() {
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
         camera.position.x = 0;
-        camera.position.y = 50;
-        camera.position.z = 0;
+        camera.position.y = 40;
+        camera.position.z = 50;
 
         renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -53,7 +55,7 @@ var terrainSimulation = function() {
         canvas.addEventListener('mouseup', mouseup, false);
         canvas.addEventListener('mousemove', mousemove, false);
 
-        geometry = new THREE.PlaneGeometry(100, 100, worldWidth - 1, worldDepth - 1 );
+        geometry = new THREE.PlaneGeometry(geometryWidth, geometryDepth, worldWidth - 1, worldDepth - 1 );
         geometry.applyMatrix( new THREE.Matrix4().makeRotationX( - Math.PI / 2 ) );
         geometry.dynamic = true;
 
@@ -67,6 +69,16 @@ var terrainSimulation = function() {
         plane = new THREE.Mesh(geometry, material);
         scene.add(plane);
 
+        var stoneGeometry = new THREE.PlaneGeometry(geometryWidth, geometryDepth, worldWidth - 1, worldDepth - 1 );
+        stoneGeometry.applyMatrix( new THREE.Matrix4().makeRotationX( - Math.PI / 2 ) );
+        for (var i = 0; i < stoneGeometry.vertices.length; i++) {
+            stoneGeometry.vertices[i].y = stone[i];
+        }
+        var stoneMaterial = new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true});
+        var stonePlane = new THREE.Mesh(stoneGeometry, stoneMaterial);
+        scene.add(stonePlane);
+
+
         gameloop();
     };
 
@@ -76,8 +88,8 @@ var terrainSimulation = function() {
 
         for (var x = 0; x < width; x++) {
             for (var y = 0; y < height; y++) {
-                //data[x * width + y] = x % 10 + y % 10;
-                data[x * width + y] = 0;
+                data[x * width + y] = y * 5;
+                //data[x * width + y] = 0;
             }
         }
 
@@ -91,7 +103,7 @@ var terrainSimulation = function() {
         for (var x = 0; x < width; x++) {
             for (var y = 0; y < height; y++) {
                 //data[x * width + y] = x * 2 + (y * 4) % 10;
-                data[x * width + y] = 0;
+                data[x * width + y] = 10;
             }
         }
 
@@ -108,6 +120,9 @@ var terrainSimulation = function() {
         // generate diff
         for (var x1 = 0; x1 < width; x1++) {
             for (var y1 = 0; y1 < height; y1++) {
+                if (sand[x1 * worldWidth + y1] <= 0) {
+                    continue;
+                }
                 for (var x2 = -1; x2 <= 1; x2++) {
                     for (var y2 = -1; y2 <= 1; y2++) {
                         var x = x1 + x2;
@@ -115,21 +130,20 @@ var terrainSimulation = function() {
                         if (x < 0 || x >= width || y < 0 || y >= height) {
                             continue;
                         }
-                        if (x == 0 && y == 0) {
-                            continue
+                        if (x2 == 0 && y2 == 0) {
+                            continue;
                         }
 
-                        var h = sand[x * width + y] - sand[x1 * width + y1];
-                        if (h > 0) {
-                            var floorLength = Math.sqrt(x2 * x2  + y2 * y2);
-                            var slopeLength = Math.sqrt(h * h + floorLength * floorLength);
-                            var alpha = Math.asin(h / slopeLength);
-
-                            //diffData[x1 * width + y1] += alpha * alpha * 0.1;
-                            //diffData[x * width + y] -= alpha * alpha * 0.1;
-
-                            diffData[x1 * width + y1] += h * h * 0.001;
-                            diffData[x * width + y] -= h * h * 0.001;
+                        var heightDiff = getHeight(x1, y1) - getHeight(x, y);// sand[x * width + y] - sand[x1 * width + y1];
+                        var distance = Math.sqrt(x2 * x2  + y2 * y2);
+                        var slopeLength = Math.sqrt(heightDiff * heightDiff + distance * distance);
+                        var alpha = Math.asin(heightDiff / slopeLength);
+                        // 90 degree is 1, 0 degree is 0
+                        var alphaNormalized = (alpha / Math.PI);
+                        var sandMoved =  alphaNormalized * alphaNormalized * (heightDiff / 2) * 1;
+                        if (sandMoved > 0.01) {
+                            diffData[x1 * width + y1] -= sandMoved;
+                            diffData[x * width + y] += sandMoved;
                         }
 
                     }
@@ -150,6 +164,10 @@ var terrainSimulation = function() {
                 }
             }
         }
+    };
+
+    var getHeight = function(x, y) {
+        return stone[x * worldWidth + y] + sand[x * worldWidth + y];
     };
 
     var resize = function() {
@@ -174,7 +192,7 @@ var terrainSimulation = function() {
                 break;
             case 82: // r
                 //sand = generateSand(worldWidth, worldDepth);
-                sand[190] = 100;
+                sand[55] = 100;
                 break;
         }
     };
